@@ -1,4 +1,7 @@
-﻿namespace BlackChat;
+﻿//Original by h1ghwaay
+//Remarked By szaman251.
+
+namespace BlackChat;
 
 public partial class RegisterForm : Form
 {
@@ -42,28 +45,21 @@ public partial class RegisterForm : Form
             bool success = await _firebaseService.CreateUser(username, password);
             if (success)
             {
-                // Wygeneruj klucze dla nowego użytkownika i zapisz publiczny w Firebase
+                // Generuj pary kluczy ECDH
                 var keyManager = new KeyManager(username);
-                keyManager.GetOrCreateEcdsaKeys(); // tworzy i zapisuje na dysku
-                var publicKey = keyManager.GetPublicKeyBase64();
-                await _firebaseService.UpdateUserPublicKey(username, publicKey);
+                keyManager.GetOrCreateEcdhKeys(); // tworzy lokalnie
+                var publicKeyBase64 = keyManager.GetEcdhPublicKeyBase64();
+                await _firebaseService.UpdateUserEcdhPublicKey(username, publicKeyBase64);
 
-                MessageBox.Show("Account created successfully!", "Success",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Account created successfully!", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 this.Close();
             }
-            else
-            {
-                ShowError("Username already exists");
-                registerBtn.Enabled = true;
-            }
+            else ShowError("Username already exists");
         }
-        catch (Exception ex)
-        {
-            ShowError($"Registration error: {ex.Message}");
-            registerBtn.Enabled = true;
-        }
+        catch (Exception ex) { ShowError($"Registration error: {ex.Message}"); }
+        finally { registerBtn.Enabled = true; }
     }
+    
 
     private void ShowError(string message)
     {     

@@ -1,3 +1,6 @@
+//Original by h1ghwaay
+//Remarked By szaman251.
+
 namespace BlackChat;
 
 public partial class Form1 : Form
