@@ -7,4 +7,5 @@ public class User
     public string Salt { get; set; } = "";
     public List<string> Friends { get; set; } = new();
     public List<string> Groups { get; set; } = new();
+    public string PublicKey { get; set; } = ""; // Base64
 }

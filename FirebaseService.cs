@@ -1,22 +1,58 @@
 ﻿using Firebase.Database;
 using Firebase.Database.Query;
 using Newtonsoft.Json;
-using BlackChat;
+using System.Text;
 
 namespace BlackChat;
 
 public class FirebaseService
 {
     private readonly FirebaseClient _firebase;
-    private readonly EncryptionService _encryption;
-    private readonly PasswordService _password;
     private readonly string _firebaseUrl = "https://NullControl-d75f4-default-rtdb.europe-west1.firebasedatabase.app/";
+    private KeyManager? _keyManager;
+    private EncryptionService? _encryption;
+    private readonly PasswordService _password = new();
+    private readonly Dictionary<string, string> _publicKeyCache = new();
 
     public FirebaseService()
     {
         _firebase = new FirebaseClient(_firebaseUrl);
-        _encryption = new EncryptionService();
-        _password = new PasswordService();
+    }
+
+    public void SetUserContext(string username)
+    {
+        _keyManager = new KeyManager(username);
+        var aesKey = _keyManager.GetOrCreateAesKey();
+        _encryption = new EncryptionService(aesKey);
+    }
+
+    private async Task<string?> GetUserPublicKey(string username)
+    {
+        if (_publicKeyCache.TryGetValue(username, out var cached))
+            return cached;
+
+        try
+        {
+            var userData = await _firebase
+                .Child("users")
+                .Child(username)
+                .OnceSingleAsync<Dictionary<string, object>>();
+
+            if (userData != null && userData.TryGetValue("PublicKey", out var pkObj))
+            {
+                var pk = pkObj?.ToString();
+                if (!string.IsNullOrEmpty(pk))
+                {
+                    _publicKeyCache[username] = pk;
+                    return pk;
+                }
+            }
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public async Task<bool> CreateUser(string username, string password)
@@ -27,9 +63,7 @@ public class FirebaseService
             .OnceSingleAsync<Dictionary<string, object>>();
 
         if (userExists != null && userExists.Count > 0)
-        {
             return false;
-        }
 
         var (hash, salt) = _password.HashPassword(password);
 
@@ -39,7 +73,8 @@ public class FirebaseService
             PasswordHash = hash,
             Salt = salt,
             Friends = new List<string>(),
-            Groups = new List<string>()
+            Groups = new List<string>(),
+            PublicKey = "" // zostanie ustawione później
         };
 
         await _firebase
@@ -50,6 +85,23 @@ public class FirebaseService
         return true;
     }
 
+    public async Task UpdateUserPublicKey(string username, string publicKeyBase64)
+    {
+        var userData = await _firebase
+            .Child("users")
+            .Child(username)
+            .OnceSingleAsync<Dictionary<string, object>>();
+
+        if (userData != null)
+        {
+            userData["PublicKey"] = publicKeyBase64;
+            await _firebase
+                .Child("users")
+                .Child(username)
+                .PutAsync(JsonConvert.SerializeObject(userData));
+        }
+    }
+
     public async Task<bool> LoginUser(string username, string password)
     {
         var userData = await _firebase
@@ -58,76 +110,70 @@ public class FirebaseService
             .OnceSingleAsync<Dictionary<string, object>>();
 
         if (userData == null || userData.Count == 0)
-        {
             return false;
-        }
 
         var user = JsonConvert.DeserializeObject<User>(
             JsonConvert.SerializeObject(userData)
         );
 
         if (user == null)
-        {
             return false;
-        }
 
         return _password.VerifyPassword(password, user.PasswordHash, user.Salt);
     }
 
-    public async Task SendPublicMessage(string username, string text)
+    private async Task SendMessageInternal(string username, string text, string channelType, string? chatId = null)
     {
-        var (encryptedText, iv) = _encryption.Encrypt(text);
+        if (_encryption == null || _keyManager == null)
+            throw new InvalidOperationException("User context not set.");
+
+        var (encryptedText, iv, tag) = _encryption.Encrypt(text);
+
+        // Dane do podpisu: username|timestamp|encryptedText|iv|tag
+        var timestamp = DateTime.UtcNow;
+        var dataToSign = Encoding.UTF8.GetBytes(
+            $"{username}|{timestamp.Ticks}|{encryptedText}|{iv}|{tag}");
+        var signature = _keyManager.SignData(dataToSign);
 
         var message = new Message
         {
             Username = username,
             Text = encryptedText,
-            IV = Convert.ToBase64String(iv),
-            Timestamp = DateTime.UtcNow
+            IV = iv,
+            Tag = tag,
+            Signature = signature,
+            Timestamp = timestamp
         };
 
-        await _firebase
-            .Child("messages")
-            .Child("public")
-            .PostAsync(JsonConvert.SerializeObject(message));
+        var serialized = JsonConvert.SerializeObject(message);
+
+        if (channelType == "public")
+        {
+            await _firebase.Child("messages").Child("public").PostAsync(serialized);
+        }
+        else if (channelType == "private" && chatId != null)
+        {
+            await _firebase.Child("messages").Child("private").Child(chatId).PostAsync(serialized);
+        }
+        else if (channelType == "group" && chatId != null)
+        {
+            await _firebase.Child("messages").Child("groups").Child(chatId).PostAsync(serialized);
+        }
+    }
+
+    public async Task SendPublicMessage(string username, string text)
+    {
+        await SendMessageInternal(username, text, "public");
     }
 
     public async Task SendPrivateMessage(string fromUser, string toUser, string text, string chatId)
     {
-        var (encryptedText, iv) = _encryption.Encrypt(text);
-
-        var message = new Message
-        {
-            Username = fromUser,
-            Text = encryptedText,
-            IV = Convert.ToBase64String(iv),
-            Timestamp = DateTime.UtcNow
-        };
-
-        await _firebase
-            .Child("messages")
-            .Child("private")
-            .Child(chatId)
-            .PostAsync(JsonConvert.SerializeObject(message));
+        await SendMessageInternal(fromUser, text, "private", chatId);
     }
 
     public async Task SendGroupMessage(string username, string groupId, string text)
     {
-        var (encryptedText, iv) = _encryption.Encrypt(text);
-
-        var message = new Message
-        {
-            Username = username,
-            Text = encryptedText,
-            IV = Convert.ToBase64String(iv),
-            Timestamp = DateTime.UtcNow
-        };
-
-        await _firebase
-            .Child("messages")
-            .Child("groups")
-            .Child(groupId)
-            .PostAsync(JsonConvert.SerializeObject(message));
+        await SendMessageInternal(username, text, "group", groupId);
     }
 
     public async Task SendSystemMessage(string groupId, string messageText)
@@ -137,6 +183,8 @@ public class FirebaseService
             Username = "SYSTEM",
             Text = messageText,
             IV = "",
+            Tag = "",
+            Signature = "",
             Timestamp = DateTime.UtcNow
         };
 
@@ -147,111 +195,86 @@ public class FirebaseService
             .PostAsync(JsonConvert.SerializeObject(message));
     }
 
-    public async Task<List<Message>> GetPublicMessages()
+    private async Task<List<Message>> GetMessagesInternal(string path, bool verifySignature)
     {
-        var messages = await _firebase
-            .Child("messages")
-            .Child("public")
-            .OnceAsync<Dictionary<string, object>>();
-
         var result = new List<Message>();
+        var snapshot = await _firebase.Child(path).OnceAsync<Dictionary<string, object>>();
 
-        foreach (var msg in messages)
+        foreach (var msgObj in snapshot)
         {
             try
             {
                 var messageData = JsonConvert.DeserializeObject<Message>(
-                    JsonConvert.SerializeObject(msg.Object)
+                    JsonConvert.SerializeObject(msgObj.Object)
                 );
 
-                if (messageData != null && !string.IsNullOrEmpty(messageData.Text))
+                if (messageData == null || string.IsNullOrEmpty(messageData.Text))
+                    continue;
+
+                if (messageData.Username == "SYSTEM")
                 {
-                    if (messageData.Username == "SYSTEM")
+                    result.Add(messageData);
+                    continue;
+                }
+
+                if (verifySignature && !string.IsNullOrEmpty(messageData.Signature))
+                {
+                    var publicKey = await GetUserPublicKey(messageData.Username);
+                    if (string.IsNullOrEmpty(publicKey))
+                        continue; // brak klucza – pomiń
+
+                    var dataToVerify = Encoding.UTF8.GetBytes(
+                        $"{messageData.Username}|{messageData.Timestamp.Ticks}|{messageData.Text}|{messageData.IV}|{messageData.Tag}");
+                    var isValid = KeyManager.VerifySignature(
+                        dataToVerify,
+                        messageData.Signature,
+                        publicKey);
+
+                    if (!isValid)
+                        continue; // pomiń nieautoryzowane
+                }
+
+                // Odszyfruj
+                if (!string.IsNullOrEmpty(messageData.IV) && !string.IsNullOrEmpty(messageData.Tag))
+                {
+                    if (_encryption != null)
                     {
-                        result.Add(messageData);
-                    }
-                    else
-                    {
-                        var ivBytes = Convert.FromBase64String(messageData.IV);
-                        messageData.Text = _encryption.Decrypt(messageData.Text, ivBytes);
-                        result.Add(messageData);
+                        messageData.Text = _encryption.Decrypt(
+                            messageData.Text,
+                            messageData.IV,
+                            messageData.Tag);
                     }
                 }
+
+                result.Add(messageData);
             }
-            catch { }
+            catch
+            {
+                // Pomiń uszkodzone wiadomości
+            }
         }
 
         return result;
+    }
+
+    public async Task<List<Message>> GetPublicMessages()
+    {
+        return await GetMessagesInternal("messages/public", true);
     }
 
     public async Task<List<Message>> GetPrivateMessages(string chatId)
     {
-        var messages = await _firebase
-            .Child("messages")
-            .Child("private")
-            .Child(chatId)
-            .OnceAsync<Dictionary<string, object>>();
-
-        var result = new List<Message>();
-
-        foreach (var msg in messages)
-        {
-            try
-            {
-                var messageData = JsonConvert.DeserializeObject<Message>(
-                    JsonConvert.SerializeObject(msg.Object)
-                );
-
-                if (messageData != null && !string.IsNullOrEmpty(messageData.Text))
-                {
-                    var ivBytes = Convert.FromBase64String(messageData.IV);
-                    messageData.Text = _encryption.Decrypt(messageData.Text, ivBytes);
-                    result.Add(messageData);
-                }
-            }
-            catch { }
-        }
-
-        return result;
+        return await GetMessagesInternal($"messages/private/{chatId}", true);
     }
 
     public async Task<List<Message>> GetGroupMessages(string groupId)
     {
-        var messages = await _firebase
-            .Child("messages")
-            .Child("groups")
-            .Child(groupId)
-            .OnceAsync<Dictionary<string, object>>();
-
-        var result = new List<Message>();
-
-        foreach (var msg in messages)
-        {
-            try
-            {
-                var messageData = JsonConvert.DeserializeObject<Message>(
-                    JsonConvert.SerializeObject(msg.Object)
-                );
-
-                if (messageData != null && !string.IsNullOrEmpty(messageData.Text))
-                {
-                    if (messageData.Username == "SYSTEM")
-                    {
-                        result.Add(messageData);
-                    }
-                    else
-                    {
-                        var ivBytes = Convert.FromBase64String(messageData.IV);
-                        messageData.Text = _encryption.Decrypt(messageData.Text, ivBytes);
-                        result.Add(messageData);
-                    }
-                }
-            }
-            catch { }
-        }
-
-        return result;
+        return await GetMessagesInternal($"messages/groups/{groupId}", true);
     }
+
+    // Pozostałe metody (GetFriends, GetUserGroups, GetGroupInfo, AddFriend, CreateGroup, JoinGroup, LeaveGroup, DeleteGroup, AddUserToGroup, RemoveUserFromGroup) pozostają bez zmian
+    // ale wymagają dostosowania – w tym miejscu pomijam dla zwięzłości, ale w rzeczywistym kodzie muszą być przepisane tak samo jak w oryginale, jedynie bez zmian w logice.
+    // Poniżej skrótowo zamieszczam je, aby zachować kompletność.
 
     public async Task<Dictionary<string, string>> GetFriends(string username)
     {
@@ -269,9 +292,7 @@ public class FirebaseService
 
         var friends = new Dictionary<string, string>();
         foreach (var friend in friendsList)
-        {
             friends[friend] = friend;
-        }
 
         return friends;
     }
@@ -308,9 +329,7 @@ public class FirebaseService
                     );
 
                     if (group != null)
-                    {
                         groups[group.GroupName] = group.GroupCode;
-                    }
                 }
             }
 
@@ -443,7 +462,6 @@ public class FirebaseService
 
         await AddUserToGroup(username, groupCode);
 
-        // Wyślij wiadomość systemową
         await SendSystemMessage(groupCode, $"{username} JOINED THE GROUP");
 
         return true;
@@ -478,7 +496,6 @@ public class FirebaseService
 
         await RemoveUserFromGroup(username, groupCode);
 
-        // Wyślij wiadomość systemową
         await SendSystemMessage(groupCode, $"{username} LEFT THE GROUP");
 
         return true;
@@ -488,19 +505,8 @@ public class FirebaseService
     {
         try
         {
-            // Usuń grupę
-            await _firebase
-                .Child("groups")
-                .Child(groupCode)
-                .DeleteAsync();
-
-            // Usuń wiadomości grupy
-            await _firebase
-                .Child("messages")
-                .Child("groups")
-                .Child(groupCode)
-                .DeleteAsync();
-
+            await _firebase.Child("groups").Child(groupCode).DeleteAsync();
+            await _firebase.Child("messages").Child("groups").Child(groupCode).DeleteAsync();
             return true;
         }
         catch

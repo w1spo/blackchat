@@ -24,6 +24,7 @@ public partial class Form1 : Form
     {
         _username = username;
         _firebaseService = new FirebaseService();
+        _firebaseService.SetUserContext(username);
         InitializeComponent();
 
         this.Text = $"BlackChat - {_username}";

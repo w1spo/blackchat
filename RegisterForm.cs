@@ -42,6 +42,12 @@ public partial class RegisterForm : Form
             bool success = await _firebaseService.CreateUser(username, password);
             if (success)
             {
+                // Wygeneruj klucze dla nowego użytkownika i zapisz publiczny w Firebase
+                var keyManager = new KeyManager(username);
+                keyManager.GetOrCreateEcdsaKeys(); // tworzy i zapisuje na dysku
+                var publicKey = keyManager.GetPublicKeyBase64();
+                await _firebaseService.UpdateUserPublicKey(username, publicKey);
+
                 MessageBox.Show("Account created successfully!", "Success",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 this.Close();
@@ -60,7 +66,7 @@ public partial class RegisterForm : Form
     }
 
     private void ShowError(string message)
-    {
+    {     
         errorLabel.Text = message;
         errorLabel.Visible = true;
         registerBtn.Enabled = true;

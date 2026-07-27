@@ -5,28 +5,37 @@ namespace BlackChat;
 
 public class PasswordService
 {
+    private const int Iterations = 600000;
+    private const int SaltSize = 16;
+    private const int HashSize = 32;
+
     public (string hash, string salt) HashPassword(string password)
     {
+        var saltBytes = new byte[SaltSize];
         using var rng = RandomNumberGenerator.Create();
-        var saltBytes = new byte[32];
         rng.GetBytes(saltBytes);
-        var salt = Convert.ToBase64String(saltBytes);
 
-        using var sha256 = SHA256.Create();
-        var combined = Encoding.UTF8.GetBytes(password + salt);
-        var hashBytes = sha256.ComputeHash(combined);
-        var hash = Convert.ToBase64String(hashBytes);
+        using var derive = new Rfc2898DeriveBytes(
+            Encoding.UTF8.GetBytes(password),
+            saltBytes,
+            Iterations,
+            HashAlgorithmName.SHA256);
+        var hashBytes = derive.GetBytes(HashSize);
 
-        return (hash, salt);
+        return (Convert.ToBase64String(hashBytes),
+                Convert.ToBase64String(saltBytes));
     }
 
     public bool VerifyPassword(string password, string storedHash, string storedSalt)
     {
-        using var sha256 = SHA256.Create();
-        var combined = Encoding.UTF8.GetBytes(password + storedSalt);
-        var hashBytes = sha256.ComputeHash(combined);
+        var saltBytes = Convert.FromBase64String(storedSalt);
+        using var derive = new Rfc2898DeriveBytes(
+            Encoding.UTF8.GetBytes(password),
+            saltBytes,
+            Iterations,
+            HashAlgorithmName.SHA256);
+        var hashBytes = derive.GetBytes(HashSize);
         var computedHash = Convert.ToBase64String(hashBytes);
-
         return computedHash == storedHash;
     }
 }
