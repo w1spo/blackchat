@@ -51,9 +51,9 @@
             ((System.ComponentModel.ISupportInitialize)sendBtn).BeginInit();
             panel4.SuspendLayout();
             SuspendLayout();
-            
-            
-            
+            // 
+            // panel1
+            // 
             panel1.BackColor = Color.FromArgb(8, 0, 12);
             panel1.Controls.Add(logoPic);
             panel1.Controls.Add(chatsBtn);
@@ -68,9 +68,9 @@
             panel1.Name = "panel1";
             panel1.Size = new Size(70, 700);
             panel1.TabIndex = 2;
-            
-            
-            
+            // 
+            // logoPic
+            // 
             logoPic.BackColor = Color.Transparent;
             logoPic.Image = (Image)resources.GetObject("logoPic.Image");
             logoPic.Location = new Point(13, 12);
@@ -79,9 +79,9 @@
             logoPic.SizeMode = PictureBoxSizeMode.AutoSize;
             logoPic.TabIndex = 0;
             logoPic.TabStop = false;
-            
-            
-            
+            // 
+            // chatsBtn
+            // 
             chatsBtn.BackColor = Color.Transparent;
             chatsBtn.Image = (Image)resources.GetObject("chatsBtn.Image");
             chatsBtn.Location = new Point(13, 80);
@@ -91,9 +91,9 @@
             chatsBtn.TabIndex = 1;
             chatsBtn.TabStop = false;
             chatsBtn.Click += ChatsBtn_Click;
-            
-            
-            
+            // 
+            // groupsBtn
+            // 
             groupsBtn.BackColor = Color.Transparent;
             groupsBtn.Image = (Image)resources.GetObject("groupsBtn.Image");
             groupsBtn.Location = new Point(13, 140);
@@ -103,9 +103,9 @@
             groupsBtn.TabIndex = 2;
             groupsBtn.TabStop = false;
             groupsBtn.Click += GroupsBtn_Click;
-            
-            
-            
+            // 
+            // publicBtn
+            // 
             publicBtn.BackColor = Color.Transparent;
             publicBtn.Image = (Image)resources.GetObject("publicBtn.Image");
             publicBtn.Location = new Point(13, 200);
@@ -115,9 +115,9 @@
             publicBtn.TabIndex = 3;
             publicBtn.TabStop = false;
             publicBtn.Click += PublicBtn_Click;
-            
-            
-            
+            // 
+            // addFriendBtn
+            // 
             addFriendBtn.BackColor = Color.Transparent;
             addFriendBtn.Image = (Image)resources.GetObject("addFriendBtn.Image");
             addFriendBtn.Location = new Point(13, 540);
@@ -127,9 +127,9 @@
             addFriendBtn.TabIndex = 4;
             addFriendBtn.TabStop = false;
             addFriendBtn.Click += AddFriendBtn_Click;
-            
-            
-            
+            // 
+            // createGroupBtn
+            // 
             createGroupBtn.BackColor = Color.Transparent;
             createGroupBtn.Image = (Image)resources.GetObject("createGroupBtn.Image");
             createGroupBtn.Location = new Point(13, 590);
@@ -139,9 +139,9 @@
             createGroupBtn.TabIndex = 5;
             createGroupBtn.TabStop = false;
             createGroupBtn.Click += CreateGroupBtn_Click;
-            
-            
-            
+            // 
+            // joinGroupBtn
+            // 
             joinGroupBtn.BackColor = Color.Transparent;
             joinGroupBtn.Image = (Image)resources.GetObject("joinGroupBtn.Image");
             joinGroupBtn.Location = new Point(13, 640);
@@ -151,9 +151,9 @@
             joinGroupBtn.TabIndex = 6;
             joinGroupBtn.TabStop = false;
             joinGroupBtn.Click += JoinGroupBtn_Click;
-            
-            
-            
+            // 
+            // panel2
+            // 
             panel2.BackColor = Color.FromArgb(14, 0, 20);
             panel2.Controls.Add(label1);
             panel2.Controls.Add(contactsList);
@@ -163,9 +163,9 @@
             panel2.Padding = new Padding(10);
             panel2.Size = new Size(240, 700);
             panel2.TabIndex = 1;
-            
-            
-            
+            // 
+            // label1
+            // 
             label1.Font = new Font("Consolas", 14F, FontStyle.Bold);
             label1.ForeColor = Color.FromArgb(255, 0, 136);
             label1.Location = new Point(10, 8);
@@ -174,9 +174,9 @@
             label1.TabIndex = 0;
             label1.Text = "> CONTACTS";
             label1.TextAlign = ContentAlignment.MiddleLeft;
-            
-            
-            
+            // 
+            // contactsList
+            // 
             contactsList.BackColor = Color.FromArgb(18, 0, 28);
             contactsList.BorderStyle = BorderStyle.None;
             contactsList.Font = new Font("Consolas", 11F);
@@ -188,9 +188,9 @@
             contactsList.MouseClick += ContactsList_MouseClick;
             contactsList.SelectedIndexChanged += ContactsList_SelectedIndexChanged;
             contactsList.MouseDown += ContactsList_MouseDown;
-            
-            
-            
+            // 
+            // panel3
+            // 
             panel3.BackColor = Color.FromArgb(6, 0, 10);
             panel3.Controls.Add(chatBox);
             panel3.Controls.Add(panel5);
@@ -200,9 +200,9 @@
             panel3.Name = "panel3";
             panel3.Size = new Size(690, 700);
             panel3.TabIndex = 0;
-            
-            
-            
+            // 
+            // chatBox
+            // 
             chatBox.BackColor = Color.FromArgb(6, 0, 10);
             chatBox.BorderStyle = BorderStyle.None;
             chatBox.Dock = DockStyle.Fill;
@@ -216,9 +216,9 @@
             chatBox.Size = new Size(690, 564);
             chatBox.TabIndex = 0;
             chatBox.Text = "";
-            
-            
-            
+            // 
+            // panel5
+            // 
             panel5.BackColor = Color.FromArgb(10, 0, 16);
             panel5.Controls.Add(messageField);
             panel5.Controls.Add(sendBtn);
@@ -228,9 +228,9 @@
             panel5.Padding = new Padding(12);
             panel5.Size = new Size(690, 80);
             panel5.TabIndex = 1;
-            
-            
-            
+            // 
+            // messageField
+            // 
             messageField.BackColor = Color.FromArgb(18, 0, 30);
             messageField.BorderStyle = BorderStyle.None;
             messageField.Font = new Font("Consolas", 11F);
@@ -242,9 +242,9 @@
             messageField.TabIndex = 0;
             messageField.Text = "";
             messageField.KeyDown += MessageField_KeyDown;
-            
-            
-            
+            // 
+            // sendBtn
+            // 
             sendBtn.BackColor = Color.Transparent;
             sendBtn.Image = (Image)resources.GetObject("sendBtn.Image");
             sendBtn.Location = new Point(575, 18);
@@ -254,9 +254,9 @@
             sendBtn.TabIndex = 1;
             sendBtn.TabStop = false;
             sendBtn.Click += SendBtn_Click;
-            
-            
-            
+            // 
+            // panel4
+            // 
             panel4.BackColor = Color.FromArgb(10, 0, 16);
             panel4.Controls.Add(nameOfChannel);
             panel4.Controls.Add(inviteCodeLabel);
@@ -266,9 +266,9 @@
             panel4.Padding = new Padding(12, 6, 12, 6);
             panel4.Size = new Size(690, 56);
             panel4.TabIndex = 2;
-            
-            
-            
+            // 
+            // nameOfChannel
+            // 
             nameOfChannel.Font = new Font("Consolas", 14F, FontStyle.Bold);
             nameOfChannel.ForeColor = Color.FromArgb(255, 0, 136);
             nameOfChannel.Location = new Point(12, 6);
@@ -277,9 +277,9 @@
             nameOfChannel.TabIndex = 0;
             nameOfChannel.Text = "# PUBLIC";
             nameOfChannel.TextAlign = ContentAlignment.MiddleLeft;
-            
-            
-            
+            // 
+            // inviteCodeLabel
+            // 
             inviteCodeLabel.Font = new Font("Consolas", 9F);
             inviteCodeLabel.ForeColor = Color.FromArgb(180, 80, 150);
             inviteCodeLabel.Location = new Point(12, 32);
@@ -290,9 +290,9 @@
             inviteCodeLabel.TextAlign = ContentAlignment.MiddleLeft;
             inviteCodeLabel.Visible = false;
             inviteCodeLabel.Click += InviteCodeLabel_Click;
-            
-            
-            
+            // 
+            // Form1
+            // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             BackColor = Color.FromArgb(6, 0, 10);
@@ -328,7 +328,7 @@
 
         #endregion
 
-        
+
         private Panel panel1;
         private Panel panel2;
         private Panel panel3;

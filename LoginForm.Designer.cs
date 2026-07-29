@@ -22,10 +22,10 @@ partial class LoginForm
 
     #region Windows Form Designer generated code
 
-    
-    
-    
-    
+
+
+
+
     private void InitializeComponent()
     {
         System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(LoginForm));
@@ -41,9 +41,9 @@ partial class LoginForm
         label4 = new Label();
         ((System.ComponentModel.ISupportInitialize)pictureBox1).BeginInit();
         SuspendLayout();
-        
-        
-        
+        // 
+        // usernameBox
+        // 
         usernameBox.BackColor = SystemColors.WindowFrame;
         usernameBox.BorderStyle = BorderStyle.FixedSingle;
         usernameBox.ForeColor = SystemColors.Info;
@@ -51,9 +51,9 @@ partial class LoginForm
         usernameBox.Name = "usernameBox";
         usernameBox.Size = new Size(204, 23);
         usernameBox.TabIndex = 1;
-        
-        
-        
+        // 
+        // passwordBox
+        // 
         passwordBox.BackColor = SystemColors.WindowFrame;
         passwordBox.BorderStyle = BorderStyle.FixedSingle;
         passwordBox.ForeColor = SystemColors.Info;
@@ -62,9 +62,9 @@ partial class LoginForm
         passwordBox.PasswordChar = '*';
         passwordBox.Size = new Size(204, 23);
         passwordBox.TabIndex = 3;
-        
-        
-        
+        // 
+        // errorLabel
+        // 
         errorLabel.ForeColor = Color.Red;
         errorLabel.Location = new Point(28, 171);
         errorLabel.Name = "errorLabel";
@@ -72,9 +72,9 @@ partial class LoginForm
         errorLabel.TabIndex = 6;
         errorLabel.TextAlign = ContentAlignment.MiddleCenter;
         errorLabel.Visible = false;
-        
-        
-        
+        // 
+        // loginBtn
+        // 
         loginBtn.BackColor = Color.SlateBlue;
         loginBtn.FlatStyle = FlatStyle.Popup;
         loginBtn.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold);
@@ -86,9 +86,9 @@ partial class LoginForm
         loginBtn.Text = "Login";
         loginBtn.UseVisualStyleBackColor = false;
         loginBtn.Click += LoginBtn_Click;
-        
-        
-        
+        // 
+        // createAccountLink
+        // 
         createAccountLink.BackColor = Color.SlateBlue;
         createAccountLink.FlatStyle = FlatStyle.Popup;
         createAccountLink.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold);
@@ -100,9 +100,9 @@ partial class LoginForm
         createAccountLink.Text = "Create Account";
         createAccountLink.UseVisualStyleBackColor = false;
         createAccountLink.Click += createAccountLink_Click;
-        
-        
-        
+        // 
+        // label1
+        // 
         label1.AutoSize = true;
         label1.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold);
         label1.ForeColor = Color.White;
@@ -111,9 +111,9 @@ partial class LoginForm
         label1.Size = new Size(73, 17);
         label1.TabIndex = 9;
         label1.Text = "Username:";
-        
-        
-        
+        // 
+        // label2
+        // 
         label2.AutoSize = true;
         label2.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold);
         label2.ForeColor = Color.White;
@@ -122,9 +122,9 @@ partial class LoginForm
         label2.Size = new Size(70, 17);
         label2.TabIndex = 10;
         label2.Text = "Password:";
-        
-        
-        
+        // 
+        // label3
+        // 
         label3.AutoSize = true;
         label3.Font = new Font("Segoe UI", 18F, FontStyle.Bold, GraphicsUnit.Point, 0);
         label3.ForeColor = Color.White;
@@ -134,9 +134,9 @@ partial class LoginForm
         label3.Size = new Size(187, 32);
         label3.TabIndex = 11;
         label3.Text = "Welcome Back!";
-        
-        
-        
+        // 
+        // pictureBox1
+        // 
         pictureBox1.Image = (Image)resources.GetObject("pictureBox1.Image");
         pictureBox1.Location = new Point(373, 12);
         pictureBox1.Name = "pictureBox1";
@@ -144,9 +144,9 @@ partial class LoginForm
         pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
         pictureBox1.TabIndex = 12;
         pictureBox1.TabStop = false;
-        
-        
-        
+        // 
+        // label4
+        // 
         label4.AutoSize = true;
         label4.Font = new Font("Segoe UI", 9.75F, FontStyle.Bold, GraphicsUnit.Point, 0);
         label4.ForeColor = Color.White;
@@ -156,9 +156,9 @@ partial class LoginForm
         label4.Size = new Size(87, 17);
         label4.TabIndex = 13;
         label4.Text = "To BlackChat";
-        
-        
-        
+        // 
+        // LoginForm
+        // 
         AllowDrop = true;
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
