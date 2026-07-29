@@ -23,7 +23,7 @@ public class KeyManager
         _ecdhPublicFile = Path.Combine(_userDir, "ecdh_public.pem");
     }
 
-    // ---------- STAŁY KLUCZ DLA CZATU PUBLICZNEGO ----------
+    
     public byte[] GetPublicChatKey()
     {
         var password = "BlackChatPublicKey2026!@#";
@@ -36,7 +36,7 @@ public class KeyManager
         return derive.GetBytes(32);
     }
 
-    // ---------- KLUCZ AES UŻYTKOWNIKA (DPAPI) ----------
+    
     public byte[] GetOrCreateAesKey()
     {
         if (File.Exists(_aesKeyFile))
@@ -55,7 +55,7 @@ public class KeyManager
         }
     }
 
-    // ---------- PARA ECDH ----------
+    
     public (byte[] privateKey, byte[] publicKey) GetOrCreateEcdhKeys()
     {
         if (File.Exists(_ecdhPrivateFile) && File.Exists(_ecdhPublicFile))
@@ -106,7 +106,7 @@ public class KeyManager
         return Convert.ToBase64String(GetEcdhPublicKey());
     }
 
-    // ---------- UZGADNIANIE SEKRETU ECDH ----------
+    
     public byte[] DeriveSharedSecret(byte[] otherPublicKey)
     {
         using var ecdh = ECDiffieHellman.Create();
@@ -119,7 +119,7 @@ public class KeyManager
         return sha.ComputeHash(secret);
     }
 
-    // ---------- SZYFROWANIE DANYCH DLA ODBIORCY (EPHEMERAL ECDH) ----------
+    
     public string EncryptDataWithPublicKey(byte[] data, byte[] recipientPublicKey)
     {
         using var ephemeral = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
@@ -152,12 +152,12 @@ public class KeyManager
         return Convert.ToBase64String(combined);
     }
 
-    // ---------- ODSZYFROWANIE DANYCH OTRZYMANYCH OD NADAWCY ----------
+    
     public byte[] DecryptDataWithPrivateKey(string encryptedBase64)
     {
         var combined = Convert.FromBase64String(encryptedBase64);
 
-        // Długość klucza publicznego P-256 w formacie SubjectPublicKeyInfo wynosi 91 bajtów
+        
         const int keyLen = 91;
         if (combined.Length < keyLen + 12 + 16)
             throw new ArgumentException("Invalid encrypted data length.");
@@ -194,7 +194,7 @@ public class KeyManager
         return plain;
     }
 
-    // ---------- PODPISYWANIE ECDSA (OSOBNA PARA LUB TE SAME KLUCZE) ----------
+    
     public string SignData(byte[] data)
     {
         using var ecdsa = ECDsa.Create();

@@ -59,8 +59,8 @@
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
-    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http:
+    <xsd:import namespace="http:
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
         <xsd:choice maxOccurs="unbounded">
@@ -148,7 +148,7 @@
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJBXPT09q/T19f1PuVz+
         UqVSOaxSqXynXC6PL5fL5xBCCCGENCnjnTOHc/ZwziDOWcQ5k+g5BQAAJPTEE0+s2Nvb+/7e3t4dent7
-        /6+vr+//yuXyIaVS6aJSqfQvY0yNEEIIIaSVcc4gzlnEOZM4Z5P6GWX76dOnb+CcXfQ8AwAAfEyaNGnl
+        /6+vr+
         crm8/rRp097X39+/TblcvkBfeAkhhBBCOi3lcvn8Uqm0jXOGmTlz5nq1Wm0lPecAAFB4tVptzD333LPC
         pEmT3tLT07NVqVSaoC+qhBBCCCF5SaVSubVcLn/COds4ZxznrKPnHwAACunll19ev7e397hyufzIhAkT
         XtEXUUIIIYSQvOW+++570Tnb9Pb2HlsqldbT8w8AAIVSqVQ+Ur+J358PO+ywmfrCSQghhBCS95x66qnT
@@ -315,7 +315,7 @@
         dIpFixbdvPrqq7/NMgJ0whigA0DQEKADQNAQoAOA3wgQNgRo6Y86AHTCCKCvga0MAD8MAADQcHBoRvRg
         lCbLDmN7NB7Oxs6aNWsT7vYPoJPMnz//SmOM8+kAbnQEaMYYoANA3CFAB4CgIUAHgG4dAfT1KCz6WtjK
         ALBhAABQcHpgaEb0QJQ0ehBryJQpU95eq9UqevgGgHabM2fOz2UESDoG6AAQNgboAOA3AsQZAnQAyPsI
-        0PB6EhB9bQqLvia2KgBsGAAAFJgeFpoVPQzFjR6+rLnnnntWr1arE/XQDQCdor+//zvGGOftADoCZD0G
+        0PB6EhB9bQqLvia2KgBsGAAAFJgeFpoVPQzFjR6+rLnnnntWr1arE/XQDQCdor+
         6AgQZwjQASDOEKADQNwRIGgI0OLfrhFAX6OiRF8XWxEANgwAAApEDwetiB6C4kQPXb459NBDV6xWq3/X
         wzYAdJq+vr6T6yOAGx0BshwDdARIOwToAGAbAWxDgA4AjADNDwAbBgAAXUoPAu2IHn6iRg9aoRkdHf2d
         HrIBoENVn3322W/ICBA0BugA0MohQAeArEeAoCFAy38rRoCG1xef6OtW1OjrZDMDwIYBAEAX0kNAO6KH
@@ -497,7 +497,7 @@
         rfxH/am/t/w3o/hr6bcVfy39UYt/Q+GvZycnu+222/4jIyOL9TlAsLvuuqvhrNHJOfroo282xnxbstwI
         MG/evH79fbZVgrvyt8Pll19+pOd7TNQRIOu3AkS9CiDoYwGjDgC2ESBoAPAbAbIcAGwjgL7GMwAAcTEA
         AIWkRb0Z0ZIfFC38Gn1Rj1r+bQOAHi5s5V8HgKWHlyOOOGItPSQiur///e/H+/zUP6j8R7nk31b+k/zU
-        v9OKv5Z+v+K/tPR7w6X/8TmX/q+//voNZ41OzpFHHukMAHtbRoBleeqpp+7R3yvCPfrooz+vf28JGgG8
+        v9OKv5Z+v+K/tPR7w6X/8TmX/q+
         bwXIYgTwuwog6IaA3XQVgL422waAOCMAABsGAKCQtKxnHS34QdGyr9EXdI0eAoLKf9QBoKH8O3nxxRe3
         0EMiovvqV7/qlOwk5T/pJf9Z/NQ/6OZ+cUu/rfhr6Y9a/BtKfz0733rrrdynIoEDDzyw4ZzR6fEMALYs
         HQCuv/76K/T32lQ5+Ql/mFKp9HfP95lm3Q/A760AaW4ImOQqgKARwB0Awj4WMIsBwDYC6Gs4AwCQFgMA
@@ -623,7 +623,7 @@
         NgD4lX+/ASDop//eAcD7k4mGAWB4gw1eqL3//bXaBhvU+Gv0v9667rrO3dzDyr/tp/9+xT9N+dfCn2n5
         d/L3d7zjCtvjwF+D/3rZ2972i3r5dxN1ANARIOrbAAo3ALxvxRWP08edv4b/9aq3ve1HPgNA0NsAwq4C
         sN0MUK8CyPpmgEV8GwAAGwYAILe0xKeJln1btPBrtPBrtPz7DQBa/qMOALbyn8VP/5cOAIPrrvtQ7e1v
-        ry3Luuv+//+b/+z7nx9Ze+0rfcq/7af/tkv/c1P+/2+VVQ4defvbB4MeD/5z43+e+ta3PinlXwcAHQGC
+        ry3Luuv+
         BgAdAfwGgGUjQAEGgMOc7LfKKj+wPf785+D//OM3v9l5i4j7/SjJ2wDCrgKw3QxQrwJIezPATnobgG0E
         0AEgygjgNwB4RwAANgwAQG5piU8TLfu2aOHXaOHXaPnPywCw9BCzaNy422qrrVarjRtX46/R//ryqqs6
         BSVK+bf99D835d+59H/6uHEv6O+fvwb/dWjcuEVbjR17iGUA0BEg6CqAqAOAjgDdOgAsLfyan6y44m/0

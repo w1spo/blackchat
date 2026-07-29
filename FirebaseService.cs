@@ -9,12 +9,12 @@ namespace BlackChat;
 public class FirebaseService
 {
     private readonly FirebaseClient _firebase;
-    private readonly string _firebaseUrl = "https://NullControl-d75f4-default-rtdb.europe-west1.firebasedatabase.app/";
+    private readonly string _firebaseUrl = "https://blackcrypt-d68fe-default-rtdb.asia-southeast1.firebasedatabase.app/";
     private KeyManager? _keyManager;
     private EncryptionService? _encryption;
     private readonly PasswordService _password = new();
     private readonly Dictionary<string, byte[]> _groupKeyCache = new();
-    private string _username = string.Empty; // <-- DODANE
+    private string _username = string.Empty;
 
     public FirebaseService()
     {
@@ -23,12 +23,12 @@ public class FirebaseService
 
     public void SetUserContext(string username)
     {
-        _username = username; // <-- USTAWIANIE
+        _username = username;
         _keyManager = new KeyManager(username);
         _encryption = new EncryptionService(_keyManager);
     }
 
-    // ---------- POBIERANIE KLUCZA PUBLICZNEGO ECDH ----------
+    
     private async Task<byte[]?> GetUserEcdhPublicKey(string username)
     {
         try
@@ -49,7 +49,7 @@ public class FirebaseService
         catch { return null; }
     }
 
-    // ---------- ZARZĄDZANIE UŻYTKOWNIKAMI ----------
+    
     public async Task<bool> CreateUser(string username, string password)
     {
         var exists = await _firebase
@@ -67,7 +67,7 @@ public class FirebaseService
             Salt = salt,
             Friends = new List<string>(),
             Groups = new List<string>(),
-            PublicKeyECDH = "" // zostanie wypełnione później
+            PublicKeyECDH = ""
         };
 
         await _firebase
@@ -113,7 +113,7 @@ public class FirebaseService
         return _password.VerifyPassword(password, user.PasswordHash, user.Salt);
     }
 
-    // ---------- WYSYŁANIE WIADOMOŚCI ----------
+    
     private async Task SendMessageInternal(
         string username,
         string text,
@@ -187,14 +187,10 @@ public class FirebaseService
     }
 
     public async Task SendPublicMessage(string username, string text)
-    {
-        await SendMessageInternal(username, text, "public");
-    }
+        => await SendMessageInternal(username, text, "public");
 
     public async Task SendPrivateMessage(string fromUser, string toUser, string text, string chatId)
-    {
-        await SendMessageInternal(fromUser, text, "private", chatId, targetUser: toUser);
-    }
+        => await SendMessageInternal(fromUser, text, "private", chatId, targetUser: toUser);
 
     public async Task SendGroupMessage(string username, string groupId, string text)
     {
@@ -222,84 +218,116 @@ public class FirebaseService
             .PostAsync(JsonConvert.SerializeObject(msg));
     }
 
-    // ---------- ODCZYT WIADOMOŚCI ----------
-    private async Task<List<Message>> GetMessagesInternal(string path, bool isPublic, string? chatId = null)
+    
+    private async Task<List<Message>> GetMessagesInternal(
+        string path,
+        bool isPublic,
+        string? chatId = null,
+        DateTime? since = null,
+        int limit = 50)
     {
         var result = new List<Message>();
-        var snapshot = await _firebase.Child(path).OnceAsync<Dictionary<string, object>>();
 
-        foreach (var msgObj in snapshot)
+        try
         {
-            try
+            
+            var snapshot = await _firebase.Child(path).OnceAsync<Dictionary<string, object>>();
+
+            var allMessages = new List<Message>();
+
+            foreach (var item in snapshot)
             {
-                var msg = JsonConvert.DeserializeObject<Message>(
-                    JsonConvert.SerializeObject(msgObj.Object)
-                );
-
-                if (msg == null || string.IsNullOrEmpty(msg.Text)) continue;
-
-                if (msg.Username == "SYSTEM")
+                try
                 {
-                    result.Add(msg);
-                    continue;
-                }
+                    var msg = JsonConvert.DeserializeObject<Message>(
+                        JsonConvert.SerializeObject(item.Object)
+                    );
 
-                // Weryfikacja podpisu (w uproszczeniu pomijamy, ale kod jest)
-                // ...
+                    if (msg == null || string.IsNullOrEmpty(msg.Text)) continue;
 
-                if (!string.IsNullOrEmpty(msg.IV) && !string.IsNullOrEmpty(msg.Tag))
-                {
-                    if (isPublic)
+                    msg.Id = item.Key;
+
+                    if (msg.Username == "SYSTEM")
                     {
-                        msg.Text = _encryption?.DecryptPublic(msg.Text, msg.IV, msg.Tag) ?? msg.Text;
+                        allMessages.Add(msg);
+                        continue;
                     }
-                    else if (path.StartsWith("messages/private"))
+
+                    if (!string.IsNullOrEmpty(msg.IV) && !string.IsNullOrEmpty(msg.Tag))
                     {
-                        var parts = chatId?.Split('_');
-                        if (parts != null && parts.Length == 3)
+                        if (isPublic)
                         {
-                            var other = parts[1] == _username ? parts[2] : parts[1];
-                            var otherPub = await GetUserEcdhPublicKey(other);
-                            if (otherPub != null)
+                            msg.Text = _encryption?.DecryptPublic(msg.Text, msg.IV, msg.Tag) ?? msg.Text;
+                        }
+                        else if (path.StartsWith("messages/private"))
+                        {
+                            var parts = chatId?.Split('_');
+                            if (parts != null && parts.Length == 3)
                             {
-                                msg.Text = _encryption?.DecryptPrivate(msg.Text, msg.IV, msg.Tag, otherPub) ?? msg.Text;
+                                var other = parts[1] == _username ? parts[2] : parts[1];
+                                var otherPub = await GetUserEcdhPublicKey(other);
+                                if (otherPub != null)
+                                {
+                                    msg.Text = _encryption?.DecryptPrivate(msg.Text, msg.IV, msg.Tag, otherPub) ?? msg.Text;
+                                }
+                            }
+                        }
+                        else if (path.StartsWith("messages/groups"))
+                        {
+                            var groupKey = await GetGroupKey(chatId ?? "");
+                            if (groupKey != null)
+                            {
+                                msg.Text = _encryption?.DecryptGroup(msg.Text, msg.IV, msg.Tag, groupKey) ?? msg.Text;
                             }
                         }
                     }
-                    else if (path.StartsWith("messages/groups"))
-                    {
-                        var groupKey = await GetGroupKey(chatId ?? "");
-                        if (groupKey != null)
-                        {
-                            msg.Text = _encryption?.DecryptGroup(msg.Text, msg.IV, msg.Tag, groupKey) ?? msg.Text;
-                        }
-                    }
-                }
 
-                result.Add(msg);
+                    allMessages.Add(msg);
+                }
+                catch {  }
             }
-            catch { }
+
+            
+            if (since.HasValue)
+            {
+                allMessages = allMessages.Where(m => m.Timestamp > since.Value).ToList();
+            }
+
+            
+            result = allMessages
+                .OrderByDescending(m => m.Timestamp)
+                .Take(limit)
+                .OrderBy(m => m.Timestamp)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"GetMessages error: {ex.Message}");
         }
 
         return result;
     }
 
-    public async Task<List<Message>> GetPublicMessages()
-    {
-        return await GetMessagesInternal("messages/public", true);
-    }
+    
+    public async Task<List<Message>> GetLatestPublicMessages(int limit = 50)
+        => await GetMessagesInternal("messages/public", true, limit: limit);
 
-    public async Task<List<Message>> GetPrivateMessages(string chatId)
-    {
-        return await GetMessagesInternal($"messages/private/{chatId}", false, chatId);
-    }
+    public async Task<List<Message>> GetPublicMessagesSince(DateTime since, int limit = 50)
+        => await GetMessagesInternal("messages/public", true, since: since, limit: limit);
 
-    public async Task<List<Message>> GetGroupMessages(string groupId)
-    {
-        return await GetMessagesInternal($"messages/groups/{groupId}", false, groupId);
-    }
+    public async Task<List<Message>> GetLatestPrivateMessages(string chatId, int limit = 50)
+        => await GetMessagesInternal($"messages/private/{chatId}", false, chatId, limit: limit);
 
-    // ---------- ZARZĄDZANIE GRUPAMI (KLUCZE) ----------
+    public async Task<List<Message>> GetPrivateMessagesSince(string chatId, DateTime since, int limit = 50)
+        => await GetMessagesInternal($"messages/private/{chatId}", false, chatId, since, limit);
+
+    public async Task<List<Message>> GetLatestGroupMessages(string groupId, int limit = 50)
+        => await GetMessagesInternal($"messages/groups/{groupId}", false, groupId, limit: limit);
+
+    public async Task<List<Message>> GetGroupMessagesSince(string groupId, DateTime since, int limit = 50)
+        => await GetMessagesInternal($"messages/groups/{groupId}", false, groupId, since, limit);
+
+    
     public async Task<byte[]?> GetGroupKey(string groupCode)
     {
         if (_groupKeyCache.TryGetValue(groupCode, out var cached))
@@ -332,7 +360,7 @@ public class FirebaseService
         return null;
     }
 
-    // ---------- ZARZĄDZANIE GRUPAMI (CRUD) ----------
+    
     public async Task<bool> CreateGroup(string username, string groupName, string groupCode)
     {
         var exists = await _firebase
@@ -392,12 +420,8 @@ public class FirebaseService
         var userPublic = await GetUserEcdhPublicKey(username);
         if (userPublic == null) return false;
 
-        // Pobieramy klucz grupy (musimy go znać, aby dołączyć – lider musi dodać wpis)
-        // W praktyce, jeśli dołączamy, lider musi wcześniej dodać nasz klucz.
-        // Tutaj zakładamy, że lider dodał już wpis, lub my go odtwarzamy.
-        // Uproszczenie: jeśli nie mamy klucza, nie możemy dołączyć.
         var groupKey = await GetGroupKey(groupCode);
-        if (groupKey == null) return false; // brak klucza – nie możemy odszyfrować
+        if (groupKey == null) return false;
 
         var encryptedForNew = _keyManager?.EncryptDataWithPublicKey(groupKey, userPublic);
         if (string.IsNullOrEmpty(encryptedForNew)) return false;
@@ -463,7 +487,7 @@ public class FirebaseService
         }
     }
 
-    // ---------- ZARZĄDZANIE ZNAJOMYMI ----------
+    
     public async Task<Dictionary<string, string>> GetFriends(string username)
     {
         var userData = await _firebase
@@ -591,7 +615,7 @@ public class FirebaseService
         return true;
     }
 
-    // ---------- POMOCNICZE (dodawanie/usuwanie grup w profilu) ----------
+    
     private async Task AddUserToGroup(string username, string groupCode)
     {
         var userData = await _firebase

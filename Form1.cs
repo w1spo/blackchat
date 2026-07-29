@@ -1,5 +1,6 @@
-//Original by h1ghwaay
-//Remarked By szaman251.
+
+
+
 
 namespace BlackChat;
 
@@ -14,6 +15,13 @@ public partial class Form1 : Form
     private Dictionary<string, string> _groups = new();
     private bool _isClosing = false;
     private System.Windows.Forms.Timer refreshTimer = new();
+
+    
+    private readonly Dictionary<string, List<Message>> _messageCache = new();
+    
+    private readonly Dictionary<string, DateTime> _lastMessageTime = new();
+    
+    private readonly SemaphoreSlim _loadSemaphore = new SemaphoreSlim(1, 1);
 
     private enum ViewMode
     {
@@ -32,6 +40,7 @@ public partial class Form1 : Form
 
         this.Text = $"BlackChat - {_username}";
 
+        
         publicBtn.Click += PublicBtn_Click;
         chatsBtn.Click += ChatsBtn_Click;
         groupsBtn.Click += GroupsBtn_Click;
@@ -43,12 +52,26 @@ public partial class Form1 : Form
         contactsList.MouseClick += ContactsList_MouseClick;
         messageField.KeyDown += MessageField_KeyDown;
         inviteCodeLabel.Visible = false;
+        inviteCodeLabel.Click += InviteCodeLabel_Click;
+
         SetViewMode(ViewMode.Public);
         LoadFriends();
         LoadGroups();
-        LoadPublicMessages();
         StartAutoRefresh();
         UpdateChatContext();
+        InitializeNotifyIcon();
+    }
+
+    private void InitializeNotifyIcon()
+    {
+        ContextMenuStrip menu = new ContextMenuStrip();
+        menu.Items.Add("Open BlackChat", null, (s, e) =>
+        {
+            this.Show();
+            this.WindowState = FormWindowState.Normal;
+            this.Activate();
+        });
+        menu.Items.Add("Exit", null, (s, e) => Application.Exit());
     }
 
     private void ContactsList_MouseClick(object? sender, MouseEventArgs e)
@@ -78,7 +101,6 @@ public partial class Form1 : Form
 
         if (isOwner)
         {
-            // Właściciel - pokaż opcję usunięcia
             DialogResult result = MessageBox.Show(
                 $"Are you sure you want to delete group '{groupName}'?\n\nThis action is IRREVERSIBLE!\nAll messages will be permanently lost.",
                 "Delete Group",
@@ -114,7 +136,6 @@ public partial class Form1 : Form
         }
         else
         {
-            // Członek - pokaż opcję opuszczenia
             DialogResult result = MessageBox.Show(
                 $"Do you want to leave group '{groupName}'?",
                 "Leave Group",
@@ -149,74 +170,48 @@ public partial class Form1 : Form
         switch (mode)
         {
             case ViewMode.Public:
-                nameOfChannel.Text = "Public Chat";
-                label1.Text = "Public Chat";
+                nameOfChannel.Text = "# PUBLIC_CHAT";
+                label1.Text = "> PUBLIC";
                 _currentChatId = "public";
                 _selectedFriend = "";
                 _selectedGroup = "";
-                LoadPublicMessages();
+                chatBox.Clear();
+                
+                _ = LoadMessagesAsync("public", force: true);
                 break;
 
             case ViewMode.Friends:
-                nameOfChannel.Text = "Chats";
-                label1.Text = "Chats";
-                contactsList.Items.Clear();
+                nameOfChannel.Text = "# PRIVATE";
+                label1.Text = "> CONTACTS";
                 chatBox.Clear();
+                contactsList.Items.Clear();
                 foreach (var friend in _friends.Values)
-                {
                     contactsList.Items.Add(friend);
-                }
                 if (contactsList.Items.Count > 0)
-                {
                     contactsList.SelectedIndex = 0;
-                }
                 break;
 
             case ViewMode.Groups:
-                nameOfChannel.Text = "Groups";
+                nameOfChannel.Text = "# COLLECTIVE";
+                label1.Text = "> GROUPS";
                 chatBox.Clear();
-                label1.Text = "Groups";
                 contactsList.Items.Clear();
                 foreach (var groupName in _groups.Keys)
-                {
                     contactsList.Items.Add(groupName);
-                }
                 if (contactsList.Items.Count > 0)
-                {
                     contactsList.SelectedIndex = 0;
-                }
                 break;
         }
-    }
 
-    private void PublicBtn_Click(object? sender, EventArgs e)
-    {
-        SetViewMode(ViewMode.Public);
         UpdateChatContext();
         messageField.Clear();
         messageField.Focus();
         inviteCodeLabel.Visible = false;
     }
 
-    private void ChatsBtn_Click(object? sender, EventArgs e)
-    {
-        SetViewMode(ViewMode.Friends);
-        UpdateChatContext();
-        messageField.Clear();
-        messageField.Focus();
-        inviteCodeLabel.Visible = false;
-        chatBox.Clear();
-    }
-
-    private void GroupsBtn_Click(object? sender, EventArgs e)
-    {
-        SetViewMode(ViewMode.Groups);
-        UpdateChatContext();
-        messageField.Clear();
-        messageField.Focus();
-        inviteCodeLabel.Visible = false;
-        chatBox.Clear();
-    }
+    private void PublicBtn_Click(object? sender, EventArgs e) => SetViewMode(ViewMode.Public);
+    private void ChatsBtn_Click(object? sender, EventArgs e) => SetViewMode(ViewMode.Friends);
+    private void GroupsBtn_Click(object? sender, EventArgs e) => SetViewMode(ViewMode.Groups);
 
     private void ContactsList_SelectedIndexChanged(object? sender, EventArgs e)
     {
@@ -230,9 +225,10 @@ public partial class Form1 : Form
             _selectedGroup = "";
             string chatId = GetPrivateChatId(_username, _selectedFriend);
             nameOfChannel.Text = $"💬 {_selectedFriend}";
-            LoadPrivateMessages(chatId);
-            inviteCodeLabel.Visible = false;
             _currentChatId = chatId;
+            inviteCodeLabel.Visible = false;
+            chatBox.Clear();
+            _ = LoadMessagesAsync(chatId, force: true);
         }
         else if (_currentMode == ViewMode.Groups)
         {
@@ -243,8 +239,9 @@ public partial class Form1 : Form
                 nameOfChannel.Text = $"📁 {selected}";
                 inviteCodeLabel.Text = $"Invite Code: {groupCode}";
                 inviteCodeLabel.Visible = true;
-                LoadGroupMessages(groupCode);
                 _currentChatId = groupCode;
+                chatBox.Clear();
+                _ = LoadMessagesAsync(groupCode, force: true);
             }
         }
 
@@ -263,17 +260,11 @@ public partial class Form1 : Form
     private void UpdateChatContext()
     {
         if (_currentMode == ViewMode.Public)
-        {
             _currentChatId = "public";
-        }
         else if (_currentMode == ViewMode.Friends && !string.IsNullOrWhiteSpace(_selectedFriend))
-        {
             _currentChatId = GetPrivateChatId(_username, _selectedFriend);
-        }
         else if (_currentMode == ViewMode.Groups && !string.IsNullOrWhiteSpace(_selectedGroup))
-        {
             _currentChatId = _selectedGroup;
-        }
     }
 
     private void MessageField_KeyDown(object? sender, KeyEventArgs e)
@@ -286,44 +277,30 @@ public partial class Form1 : Form
         }
     }
 
-    private void SendBtn_Click(object? sender, EventArgs e)
-    {
-        SendMessageBasedOnMode();
-    }
+    private void SendBtn_Click(object? sender, EventArgs e) => SendMessageBasedOnMode();
 
     private async void SendMessageBasedOnMode()
     {
         string text = messageField.Text.Trim();
-        if (string.IsNullOrWhiteSpace(text))
-            return;
+        if (string.IsNullOrWhiteSpace(text)) return;
 
         if (_currentMode == ViewMode.Public)
-        {
             await SendPublicMessage(text);
-        }
         else if (_currentMode == ViewMode.Friends)
         {
             if (!string.IsNullOrWhiteSpace(_selectedFriend))
-            {
                 await SendPrivateMessage(text);
-            }
             else
-            {
                 MessageBox.Show("Please select a friend to chat with!", "Info",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
         }
         else if (_currentMode == ViewMode.Groups)
         {
             if (!string.IsNullOrWhiteSpace(_selectedGroup))
-            {
                 await SendGroupMessage(text);
-            }
             else
-            {
                 MessageBox.Show("Please select or join a group!", "Info",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
         }
     }
 
@@ -331,11 +308,12 @@ public partial class Form1 : Form
     {
         messageField.Clear();
         sendBtn.Enabled = false;
-
         try
         {
             await _firebaseService.SendPublicMessage(_username, text);
-            await LoadPublicMessages();
+            
+            if (_currentMode == ViewMode.Public)
+                await LoadMessagesAsync("public", force: true);
         }
         catch (Exception ex)
         {
@@ -351,17 +329,16 @@ public partial class Form1 : Form
 
     private async Task SendPrivateMessage(string text)
     {
-        if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(_selectedFriend))
-            return;
+        if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(_selectedFriend)) return;
 
         messageField.Clear();
         sendBtn.Enabled = false;
-
         try
         {
             string chatId = GetPrivateChatId(_username, _selectedFriend);
             await _firebaseService.SendPrivateMessage(_username, _selectedFriend, text, chatId);
-            await LoadPrivateMessages(chatId);
+            if (_currentMode == ViewMode.Friends && _selectedFriend == contactsList.SelectedItem?.ToString())
+                await LoadMessagesAsync(chatId, force: true);
         }
         catch (Exception ex)
         {
@@ -377,16 +354,15 @@ public partial class Form1 : Form
 
     private async Task SendGroupMessage(string text)
     {
-        if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(_selectedGroup))
-            return;
+        if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(_selectedGroup)) return;
 
         messageField.Clear();
         sendBtn.Enabled = false;
-
         try
         {
             await _firebaseService.SendGroupMessage(_username, _selectedGroup, text);
-            await LoadGroupMessages(_selectedGroup);
+            if (_currentMode == ViewMode.Groups && _selectedGroup == _currentChatId)
+                await LoadMessagesAsync(_selectedGroup, force: true);
         }
         catch (Exception ex)
         {
@@ -407,93 +383,188 @@ public partial class Form1 : Form
         return $"private_{users[0]}_{users[1]}";
     }
 
-    private async Task LoadPublicMessages()
+    
+    
+    
+    private async Task LoadMessagesAsync(string channelId, bool force = false)
     {
+        if (_isClosing) return;
+
+        
+        if (!await _loadSemaphore.WaitAsync(0)) return;
+
         try
         {
-            var messages = await _firebaseService.GetPublicMessages();
-            chatBox.Clear();
+            
+            if (!IsCurrentChannel(channelId)) return;
 
-            foreach (var msg in messages.OrderBy(m => m.Timestamp))
+            List<Message> newMessages = new();
+            DateTime lastTime = DateTime.MinValue;
+
+            
+            lock (_messageCache)
             {
-                string displayText;
-                if (msg.Username == "SYSTEM")
-                {
-                    displayText = $"🔔 {msg.Text}\n\n";
-                }
+                if (_lastMessageTime.TryGetValue(channelId, out var cachedTime))
+                    lastTime = cachedTime;
+            }
+
+            if (force || lastTime == DateTime.MinValue)
+            {
+                
+                if (channelId == "public")
+                    newMessages = await _firebaseService.GetLatestPublicMessages(50);
+                else if (channelId.StartsWith("private_"))
+                    newMessages = await _firebaseService.GetLatestPrivateMessages(channelId, 50);
                 else
+                    newMessages = await _firebaseService.GetLatestGroupMessages(channelId, 50);
+
+                
+                lock (_messageCache)
                 {
-                    displayText = $"[{msg.Timestamp:HH:mm}] {msg.Username}:\n{msg.Text}\n\n";
+                    _messageCache[channelId] = newMessages.OrderBy(m => m.Timestamp).ToList();
+                    if (newMessages.Any())
+                        _lastMessageTime[channelId] = newMessages.Max(m => m.Timestamp);
                 }
-                chatBox.AppendText(displayText);
-                chatBox.SelectionStart = chatBox.Text.Length;
-                chatBox.ScrollToCaret();
+
+                
+                if (IsCurrentChannel(channelId))
+                    DisplayAllMessages(channelId);
             }
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"Error loading messages: {ex.Message}", "Error",
-                MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-    }
-
-    private async Task LoadPrivateMessages(string chatId)
-    {
-        try
-        {
-            var messages = await _firebaseService.GetPrivateMessages(chatId);
-            chatBox.Clear();
-
-            foreach (var msg in messages.OrderBy(m => m.Timestamp))
+            else
             {
-                string displayText = $"[{msg.Timestamp:HH:mm}] {msg.Username}:\n{msg.Text}\n\n";
-                chatBox.AppendText(displayText);
-                chatBox.SelectionStart = chatBox.Text.Length;
-                chatBox.ScrollToCaret();
-            }
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"Error loading private messages: {ex.Message}", "Error",
-                MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-    }
-
-    private async Task LoadGroupMessages(string groupId)
-    {
-        try
-        {
-            var messages = await _firebaseService.GetGroupMessages(groupId);
-            chatBox.Clear();
-
-            foreach (var msg in messages.OrderBy(m => m.Timestamp))
-            {
-                string displayText;
-                if (msg.Username == "SYSTEM")
-                {
-                    displayText = $"🔔 {msg.Text}\n\n";
-                }
+                
+                if (channelId == "public")
+                    newMessages = await _firebaseService.GetPublicMessagesSince(lastTime, 50);
+                else if (channelId.StartsWith("private_"))
+                    newMessages = await _firebaseService.GetPrivateMessagesSince(channelId, lastTime, 50);
                 else
+                    newMessages = await _firebaseService.GetGroupMessagesSince(channelId, lastTime, 50);
+
+                
+                lock (_messageCache)
                 {
-                    displayText = $"[{msg.Timestamp:HH:mm}] {msg.Username}:\n{msg.Text}\n\n";
+                    if (_messageCache.TryGetValue(channelId, out var cached))
+                    {
+                        var existingIds = new HashSet<string>(cached.Select(m => m.Id));
+                        var uniqueNew = newMessages.Where(m => !existingIds.Contains(m.Id)).ToList();
+
+                        if (uniqueNew.Any())
+                        {
+                            cached.AddRange(uniqueNew);
+                            cached = cached.OrderBy(m => m.Timestamp).ToList();
+                            _messageCache[channelId] = cached;
+                            _lastMessageTime[channelId] = cached.Max(m => m.Timestamp);
+
+                            
+                            if (IsCurrentChannel(channelId))
+                                AppendMessages(uniqueNew);
+                        }
+                    }
+                    else
+                    {
+                        
+                        _messageCache[channelId] = newMessages.OrderBy(m => m.Timestamp).ToList();
+                        if (newMessages.Any())
+                            _lastMessageTime[channelId] = newMessages.Max(m => m.Timestamp);
+                        if (IsCurrentChannel(channelId))
+                            DisplayAllMessages(channelId);
+                    }
                 }
-                chatBox.AppendText(displayText);
-                chatBox.SelectionStart = chatBox.Text.Length;
-                chatBox.ScrollToCaret();
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Error loading group messages: {ex.Message}", "Error",
-                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            System.Diagnostics.Debug.WriteLine($"LoadMessages error: {ex.Message}");
+        }
+        finally
+        {
+            _loadSemaphore.Release();
         }
     }
 
-    private async void LoadMessages()
+    
+    private void DisplayAllMessages(string channelId)
     {
-        await LoadPublicMessages();
+        if (this.InvokeRequired)
+        {
+            this.Invoke(new Action(() => DisplayAllMessages(channelId)));
+            return;
+        }
+
+        if (!IsCurrentChannel(channelId)) return;
+
+        List<Message> messages;
+        lock (_messageCache)
+        {
+            if (!_messageCache.TryGetValue(channelId, out messages)) return;
+        }
+
+        chatBox.SuspendLayout();
+        chatBox.Clear();
+
+        foreach (var msg in messages.OrderBy(m => m.Timestamp))
+        {
+            string displayText = FormatMessage(msg);
+            chatBox.AppendText(displayText);
+        }
+
+        chatBox.ResumeLayout();
+        chatBox.SelectionStart = chatBox.Text.Length;
+        chatBox.ScrollToCaret();
     }
 
+    
+    private void AppendMessages(List<Message> newMessages)
+    {
+        if (this.InvokeRequired)
+        {
+            this.Invoke(new Action(() => AppendMessages(newMessages)));
+            return;
+        }
+
+        if (!IsCurrentChannel(_currentChatId)) return;
+
+        chatBox.SuspendLayout();
+
+        foreach (var msg in newMessages.OrderBy(m => m.Timestamp))
+        {
+            string displayText = FormatMessage(msg);
+            chatBox.AppendText(displayText);
+        }
+
+        chatBox.ResumeLayout();
+        chatBox.SelectionStart = chatBox.Text.Length;
+        chatBox.ScrollToCaret();
+    }
+
+    private string FormatMessage(Message msg)
+    {
+        if (msg.Username == "SYSTEM")
+            return $"🔔 {msg.Text}\n\n";
+        else
+            return $"[{msg.Timestamp:HH:mm}] {msg.Username}:\n{msg.Text}\n\n";
+    }
+
+    private bool IsCurrentChannel(string channelId)
+    {
+        if (channelId == "public" && _currentMode == ViewMode.Public)
+            return true;
+
+        if (_currentMode == ViewMode.Friends && !string.IsNullOrWhiteSpace(_selectedFriend))
+        {
+            string currentPrivateId = GetPrivateChatId(_username, _selectedFriend);
+            if (channelId == currentPrivateId) return true;
+        }
+
+        if (_currentMode == ViewMode.Groups && !string.IsNullOrWhiteSpace(_selectedGroup))
+        {
+            if (channelId == _selectedGroup) return true;
+        }
+
+        return false;
+    }
+
+    
     private async void LoadFriends()
     {
         try
@@ -503,13 +574,9 @@ public partial class Form1 : Form
             {
                 contactsList.Items.Clear();
                 foreach (var friend in _friends.Values)
-                {
                     contactsList.Items.Add(friend);
-                }
-                if (contactsList.Items.Count > 0)
-                {
+                if (contactsList.Items.Count > 0 && contactsList.SelectedIndex == -1)
                     contactsList.SelectedIndex = 0;
-                }
             }
         }
         catch (Exception ex)
@@ -528,13 +595,9 @@ public partial class Form1 : Form
             {
                 contactsList.Items.Clear();
                 foreach (var groupName in _groups.Keys)
-                {
                     contactsList.Items.Add(groupName);
-                }
-                if (contactsList.Items.Count > 0)
-                {
+                if (contactsList.Items.Count > 0 && contactsList.SelectedIndex == -1)
                     contactsList.SelectedIndex = 0;
-                }
             }
         }
         catch (Exception ex)
@@ -544,6 +607,7 @@ public partial class Form1 : Form
         }
     }
 
+    
     private async void AddFriendBtn_Click(object? sender, EventArgs e)
     {
         string friendUsername = Microsoft.VisualBasic.Interaction.InputBox(
@@ -552,9 +616,7 @@ public partial class Form1 : Form
             ""
         );
 
-        if (string.IsNullOrWhiteSpace(friendUsername))
-            return;
-
+        if (string.IsNullOrWhiteSpace(friendUsername)) return;
         if (friendUsername == _username)
         {
             MessageBox.Show("You cannot add yourself as a friend!", "Error",
@@ -592,8 +654,7 @@ public partial class Form1 : Form
             ""
         );
 
-        if (string.IsNullOrWhiteSpace(groupCode))
-            return;
+        if (string.IsNullOrWhiteSpace(groupCode)) return;
 
         groupCode = groupCode.ToUpper().Trim();
 
@@ -613,7 +674,7 @@ public partial class Form1 : Form
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 LoadGroups();
                 _selectedGroup = groupCode;
-                await LoadGroupMessages(groupCode);
+                _ = LoadMessagesAsync(groupCode, force: true);
                 SetViewMode(ViewMode.Groups);
                 UpdateChatContext();
             }
@@ -638,8 +699,7 @@ public partial class Form1 : Form
             ""
         );
 
-        if (string.IsNullOrWhiteSpace(groupName))
-            return;
+        if (string.IsNullOrWhiteSpace(groupName)) return;
 
         try
         {
@@ -651,7 +711,7 @@ public partial class Form1 : Form
                     "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 LoadGroups();
                 _selectedGroup = groupCode;
-                await LoadGroupMessages(groupCode);
+                _ = LoadMessagesAsync(groupCode, force: true);
                 SetViewMode(ViewMode.Groups);
                 UpdateChatContext();
             }
@@ -669,9 +729,7 @@ public partial class Form1 : Form
     }
 
     private bool IsValidGroupCode(string code)
-    {
-        return System.Text.RegularExpressions.Regex.IsMatch(code, @"^G-[A-Z0-9]{3}-[A-Z0-9]{4}$");
-    }
+        => System.Text.RegularExpressions.Regex.IsMatch(code, @"^G-[A-Z0-9]{3}-[A-Z0-9]{4}$");
 
     private string GenerateGroupCode()
     {
@@ -682,9 +740,10 @@ public partial class Form1 : Form
         return $"G-{part1}-{part2}";
     }
 
+    
     private void StartAutoRefresh()
     {
-        refreshTimer.Interval = 3000;
+        refreshTimer.Interval = 2000;
         refreshTimer.Tick += async (s, e) =>
         {
             if (_isClosing) return;
@@ -692,39 +751,20 @@ public partial class Form1 : Form
             try
             {
                 if (_currentMode == ViewMode.Public)
-                {
-                    var messages = await _firebaseService.GetPublicMessages();
-                    var lastMessage = messages.OrderByDescending(m => m.Timestamp).FirstOrDefault();
-                    if (lastMessage != null && lastMessage.Timestamp > DateTime.UtcNow.AddSeconds(-5))
-                    {
-                        await LoadPublicMessages();
-                    }
-                }
+                    await LoadMessagesAsync("public");
                 else if (_currentMode == ViewMode.Friends && !string.IsNullOrWhiteSpace(_selectedFriend))
                 {
                     string chatId = GetPrivateChatId(_username, _selectedFriend);
-                    var messages = await _firebaseService.GetPrivateMessages(chatId);
-                    var lastMessage = messages.OrderByDescending(m => m.Timestamp).FirstOrDefault();
-                    if (lastMessage != null && lastMessage.Timestamp > DateTime.UtcNow.AddSeconds(-5))
-                    {
-                        await LoadPrivateMessages(chatId);
-                    }
+                    await LoadMessagesAsync(chatId);
                 }
                 else if (_currentMode == ViewMode.Groups && !string.IsNullOrWhiteSpace(_selectedGroup))
                 {
-                    var messages = await _firebaseService.GetGroupMessages(_selectedGroup);
-                    var lastMessage = messages.OrderByDescending(m => m.Timestamp).FirstOrDefault();
-                    if (lastMessage != null && lastMessage.Timestamp > DateTime.UtcNow.AddSeconds(-5))
-                    {
-                        await LoadGroupMessages(_selectedGroup);
-                    }
+                    await LoadMessagesAsync(_selectedGroup);
                 }
             }
-            catch { }
+            catch {  }
         };
         refreshTimer.Start();
-
-
     }
 
     private void ContactsList_MouseDown(object? sender, MouseEventArgs e)
@@ -740,6 +780,13 @@ public partial class Form1 : Form
         }
     }
 
+    private void NotifyIcon_DoubleClick(object? sender, EventArgs e)
+    {
+        this.Show();
+        this.WindowState = FormWindowState.Normal;
+        this.Activate();
+    }
+
     private void InviteCodeLabel_Click(object? sender, EventArgs e)
     {
         if (!string.IsNullOrEmpty(inviteCodeLabel.Text))
@@ -751,4 +798,5 @@ public partial class Form1 : Form
         }
     }
 
+    private void Form1_Load(object sender, EventArgs e) { }
 }

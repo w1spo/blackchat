@@ -1,5 +1,5 @@
-﻿//Original by h1ghwaay
-//Remarked By szaman251.
+﻿
+
 
 namespace BlackChat;
 
@@ -45,9 +45,9 @@ public partial class RegisterForm : Form
             bool success = await _firebaseService.CreateUser(username, password);
             if (success)
             {
-                // Generuj pary kluczy ECDH
+                
                 var keyManager = new KeyManager(username);
-                keyManager.GetOrCreateEcdhKeys(); // tworzy lokalnie
+                keyManager.GetOrCreateEcdhKeys(); 
                 var publicKeyBase64 = keyManager.GetEcdhPublicKeyBase64();
                 await _firebaseService.UpdateUserEcdhPublicKey(username, publicKeyBase64);
 

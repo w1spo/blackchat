@@ -1,5 +1,5 @@
-﻿//Original by h1ghwaay
-//Remarked By szaman251.
+﻿
+
 
 using System.Security.Cryptography;
 using System.Text;
@@ -17,7 +17,7 @@ public class EncryptionService
         _publicChatKey = _keyManager.GetPublicChatKey();
     }
 
-    // Szyfrowanie dla public chat – stały klucz
+    
     public (string encrypted, string iv, string tag) EncryptPublic(string plainText)
     {
         return EncryptWithKey(plainText, _publicChatKey);
@@ -28,7 +28,7 @@ public class EncryptionService
         return DecryptWithKey(encrypted, iv, tag, _publicChatKey);
     }
 
-    // Szyfrowanie dla private chat – klucz sesji z ECDH
+    
     public (string encrypted, string iv, string tag) EncryptPrivate(string plainText, byte[] otherPublicKey)
     {
         var shared = _keyManager.DeriveSharedSecret(otherPublicKey);
@@ -41,7 +41,7 @@ public class EncryptionService
         return DecryptWithKey(encrypted, iv, tag, shared);
     }
 
-    // Szyfrowanie dla group – używa podanego klucza grupy (byte[])
+    
     public (string encrypted, string iv, string tag) EncryptGroup(string plainText, byte[] groupKey)
     {
         return EncryptWithKey(plainText, groupKey);
